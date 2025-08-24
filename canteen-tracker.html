@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canteen Expense Tracker (Patna, Bihar)</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 20px; }
+        .container { max-width: 900px; margin: auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        form { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+        input, select { padding: 10px; flex: 1; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 10px 20px; background: #28a745; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #218838; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+        th { background: #f8f8f8; }
+        .summary { font-weight: bold; margin-top: 10px; }
+        #report-section { margin-top: 30px; }
+        .error { color: red; }
+        .report-group { margin-top: 20px; border-top: 1px solid #ccc; padding-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Canteen Expense Tracker (Patna, Bihar)</h1>
+        <form id="entry-form">
+            <input type="text" id="description" placeholder="Description (e.g., Rice Purchase)" required>
+            <input type="number" id="amount" placeholder="Amount (₹)" required min="0" step="0.01">
+            <select id="category" required>
+                <option value="">Select Category</option>
+                <option value="Raw Materials">Raw Materials</option>
+                <option value="Salary">Salary</option>
+                <option value="Electricity">Electricity</option>
+                <option value="LPG">LPG</option>
+                <option value="Rent">Rent</option>
+                <option value="Other">Other</option>
+            </select>
+            <select id="type" required>
+                <option value="">Select Type</option>
+                <option value="Vegetarian">Vegetarian</option>
+                <option value="Non-Vegetarian">Non-Vegetarian</option>
+                <option value="Shared">Shared</option>
+            </select>
+            <input type="date" id="date" required>
+            <button type="submit">Add Entry</button>
+        </form>
+        <p id="error-message" class="error"></p>
+        
+        <h2>All Entries</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Amount (₹)</th>
+                    <th>Category</th>
+                    <th>Type</th>
+                    <th>Date</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="entries-table"></tbody>
+        </table>
+        
+        <div id="report-section">
+            <h2>Generate Monthly Report</h2>
+            <input type="month" id="report-month" required>
+            <input type="number" id="veg-persons" placeholder="Number of Vegetarian Persons" required min="0" step="1">
+            <input type="number" id="nonveg-persons" placeholder="Number of Non-Vegetarian Persons" required min="0" step="1">
+            <input type="number" id="profit-percentage" placeholder="Profit Percentage (e.g., 50 for 50%)" required min="0" step="0.1">
+            <button onclick="generateReport()">Generate & Download Reports</button>
+            <div id="veg-report" class="summary report-group"></div>
+            <div id="nonveg-report" class="summary report-group"></div>
+        </div>
+    </div>
+
+    <script>
+        let entries = JSON.parse(localStorage.getItem('canteenEntries')) || [];
+
+        function saveEntries() {
+            try {
+                localStorage.setItem('canteenEntries', JSON.stringify(entries));
+                console.log('Entries saved:', entries);
+            } catch (e) {
+                console.error('Error saving to localStorage:', e);
+            }
+        }
+
+        function renderEntries() {
+            const tableBody = document.getElementById('entries-table');
+            tableBody.innerHTML = '';
+            entries.forEach((entry, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${entry.description}</td>
+                    <td>${entry.amount.toFixed(2)}</td>
+                    <td>${entry.category}</td>
+                    <td>${entry.type}</td>
+                    <td>${entry.date}</td>
+                    <td><button onclick="deleteEntry(${index})">Delete</button></td>
+                `;
+                tableBody.appendChild(row);
+            });
+            console.log('Entries rendered:', entries.length);
+        }
+
+        function addEntry(e) {
+            e.preventDefault();
+            const description = document.getElementById('description').value.trim();
+            const amount = parseFloat(document.getElementById('amount').value);
+            const category = document.getElementById('category').value;
+            const type = document.getElementById('type').value;
+            const date = document.getElementById('date').value;
+            const errorMessage = document.getElementById('error-message');
+
+            if (!description || isNaN(amount) || amount <= 0 || !category || !type || !date) {
+                errorMessage.textContent = 'Please fill all fields with valid values.';
+                console.error('Invalid entry input:', { description, amount, category, type, date });
+                return;
+            }
+
+            errorMessage.textContent = '';
+            const newEntry = { description, amount, category, type, date };
+            entries.push(newEntry);
+            console.log('New entry added:', newEntry);
+            saveEntries();
+            renderEntries();
+            document.getElementById('entry-form').reset();
+        }
+
+        function deleteEntry(index) {
+            console.log('Deleting entry at index:', index);
+            entries.splice(index, 1);
+            saveEntries();
+            renderEntries();
+        }
+
+        function generateReport() {
+            const monthInput = document.getElementById('report-month').value;
+            const vegPersons = parseInt(document.getElementById('veg-persons').value) || 0;
+            const nonVegPersons = parseInt(document.getElementById('nonveg-persons').value) || 0;
+            const profitPercentage = parseFloat(document.getElementById('profit-percentage').value) || 0;
+            const errorMessage = document.getElementById('error-message');
+
+            console.log('Generating report for:', { monthInput, vegPersons, nonVegPersons, profitPercentage });
+
+            if (!monthInput) {
+                errorMessage.textContent = 'Please select a month';
+                console.error('No month selected');
+                return;
+            }
+            if (vegPersons + nonVegPersons <= 0) {
+                errorMessage.textContent = 'Please enter at least one vegetarian or non-vegetarian person';
+                console.error('Invalid person count');
+                return;
+            }
+            if (isNaN(profitPercentage) || profitPercentage < 0) {
+                errorMessage.textContent = 'Please enter a valid profit percentage';
+                console.error('Invalid profit percentage');
+                return;
+            }
+
+            errorMessage.textContent = '';
+            const [year, month] = monthInput.split('-');
+            const filtered = entries.filter(entry => entry.date.startsWith(`${year}-${month}`));
+            
+            if (filtered.length === 0) {
+                errorMessage.textContent = 'No entries for this month';
+                console.error('No entries found for month:', monthInput);
+                return;
+            }
+
+            // Calculate costs
+            const vegCategories = {};
+            const nonVegCategories = {};
+            const sharedCategories = {};
+            let vegCost = 0, nonVegCost = 0, sharedCost = 0;
+
+            filtered.forEach(entry => {
+                if (entry.type === 'Vegetarian') {
+                    vegCategories[entry.category] = (vegCategories[entry.category] || 0) + entry.amount;
+                    vegCost += entry.amount;
+                } else if (entry.type === 'Non-Vegetarian') {
+                    nonVegCategories[entry.category] = (nonVegCategories[entry.category] || 0) + entry.amount;
+                    nonVegCost += entry.amount;
+                } else if (entry.type === 'Shared') {
+                    sharedCategories[entry.category] = (sharedCategories[entry.category] || 0) + entry.amount;
+                    sharedCost += entry.amount;
+                }
+            });
+
+            console.log('Cost breakdown:', { vegCost, nonVegCost, sharedCost, vegCategories, nonVegCategories, sharedCategories });
+
+            // Allocate shared costs proportionally
+            const totalPersons = vegPersons + nonVegPersons;
+            const vegShare = vegPersons / totalPersons;
+            const nonVegShare = nonVegPersons / totalPersons;
+            const vegSharedCost = sharedCost * vegShare;
+            const nonVegSharedCost = sharedCost * nonVegShare;
+
+            // Total costs
+            const totalVegCost = vegCost + vegSharedCost;
+            const totalNonVegCost = nonVegCost + nonVegSharedCost;
+
+            // Calculate profits
+            const vegProfit = totalVegCost * (profitPercentage / 100);
+            const nonVegProfit = totalNonVegCost * (profitPercentage / 100);
+            const vegTotalCharge = totalVegCost + vegProfit;
+            const nonVegTotalCharge = totalNonVegCost + nonVegProfit;
+
+            console.log('Report calculations:', {
+                totalVegCost, vegProfit, vegTotalCharge,
+                totalNonVegCost, nonVegProfit, nonVegTotalCharge
+            });
+
+            // Display summaries
+            const vegReportDiv = document.getElementById('veg-report');
+            vegReportDiv.innerHTML = `
+                <h3>Vegetarian Report (${vegPersons} Persons)</h3>
+                <p>Total Running Cost: ₹${totalVegCost.toFixed(2)}</p>
+                <p>Breakdown:</p>
+                <ul>
+                    ${Object.entries(vegCategories).map(([cat, amt]) => `<li>${cat}: ₹${amt.toFixed(2)}</li>`).join('')}
+                    ${Object.entries(sharedCategories).map(([cat, amt]) => `<li>${cat} (Shared, ${Math.round(vegShare * 100)}%): ₹${(amt * vegShare).toFixed(2)}</li>`).join('')}
+                </ul>
+                <p>Profit (${profitPercentage}%): ₹${vegProfit.toFixed(2)}</p>
+                <p>Total Charge: ₹${vegTotalCharge.toFixed(2)}</p>
+                <p>Charge per Person: ₹${vegPersons > 0 ? (vegTotalCharge / vegPersons).toFixed(2) : 'N/A'}</p>
+            `;
+
+            const nonVegReportDiv = document.getElementById('nonveg-report');
+            nonVegReportDiv.innerHTML = `
+                <h3>Non-Vegetarian Report (${nonVegPersons} Persons)</h3>
+                <p>Total Running Cost: ₹${totalNonVegCost.toFixed(2)}</p>
+                <p>Breakdown:</p>
+                <ul>
+                    ${Object.entries(nonVegCategories).map(([cat, amt]) => `<li>${cat}: ₹${amt.toFixed(2)}</li>`).join('')}
+                    ${Object.entries(sharedCategories).map(([cat, amt]) => `<li>${cat} (Shared, ${Math.round(nonVegShare * 100)}%): ₹${(amt * nonVegShare).toFixed(2)}</li>`).join('')}
+                </ul>
+                <p>Profit (${profitPercentage}%): ₹${nonVegProfit.toFixed(2)}</p>
+                <p>Total Charge: ₹${nonVegTotalCharge.toFixed(2)}</p>
+                <p>Charge per Person: ₹${nonVegPersons > 0 ? (nonVegTotalCharge / nonVegPersons).toFixed(2) : 'N/A'}</p>
+            `;
+
+            // Download Vegetarian CSV
+            let vegCsv = 'Date,Description,Category,Type,Amount\n';
+            filtered.forEach(entry => {
+                if (entry.type === 'Vegetarian' || entry.type === 'Shared') {
+                    const amount = entry.type === 'Shared' ? (entry.amount * vegShare).toFixed(2) : entry.amount.toFixed(2);
+                    vegCsv += `${entry.date},${entry.description.replace(/,/g, '')},${entry.category},${entry.type},${amount}\n`;
+                }
+            });
+            vegCsv += `\nTotal Vegetarian Cost,${totalVegCost.toFixed(2)}\nProfit Percentage,${profitPercentage}\nProfit,${vegProfit.toFixed(2)}\nTotal Charge,${vegTotalCharge.toFixed(2)}\nCharge per Person,${vegPersons > 0 ? (vegTotalCharge / vegPersons).toFixed(2) : 'N/A'}\n`;
+            const vegBlob = new Blob([vegCsv], { type: 'text/csv' });
+            const vegUrl = URL.createObjectURL(vegBlob);
+            const vegA = document.createElement('a');
+            vegA.href = vegUrl;
+            vegA.download = `Canteen_Vegetarian_Report_${monthInput}.csv`;
+            vegA.click();
+            URL.revokeObjectURL(vegUrl);
+
+            // Download Non-Vegetarian CSV
+            let nonVegCsv = 'Date,Description,Category,Type,Amount\n';
+            filtered.forEach(entry => {
+                if (entry.type === 'Non-Vegetarian' || entry.type === 'Shared') {
+                    const amount = entry.type === 'Shared' ? (entry.amount * nonVegShare).toFixed(2) : entry.amount.toFixed(2);
+                    nonVegCsv += `${entry.date},${entry.description.replace(/,/g, '')},${entry.category},${entry.type},${amount}\n`;
+                }
+            });
+            nonVegCsv += `\nTotal Non-Vegetarian Cost,${totalNonVegCost.toFixed(2)}\nProfit Percentage,${profitPercentage}\nProfit,${nonVegProfit.toFixed(2)}\nTotal Charge,${nonVegTotalCharge.toFixed(2)}\nCharge per Person,${nonVegPersons > 0 ? (nonVegTotalCharge / nonVegPersons).toFixed(2) : 'N/A'}\n`;
+            const nonVegBlob = new Blob([nonVegCsv], { type: 'text/csv' });
+            const nonVegUrl = URL.createObjectURL(nonVegBlob);
+            const nonVegA = document.createElement('a');
+            nonVegA.href = nonVegUrl;
+            nonVegA.download = `Canteen_NonVegetarian_Report_${monthInput}.csv`;
+            nonVegA.click();
+            URL.revokeObjectURL(nonVegUrl);
+
+            console.log('Reports generated and downloaded');
+        }
+
+        document.getElementById('entry-form').addEventListener('submit', addEntry);
+        renderEntries();
+    </script>
+</body>
+</html>
