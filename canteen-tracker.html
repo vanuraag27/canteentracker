@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Canteen Expense Tracker (Patna, Bihar)</title>
+    <title>Canteen Expense Tracker</title>
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 20px; }
         .container { max-width: 900px; margin: auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
@@ -19,6 +19,9 @@
         .error { color: red; }
         .report-group { margin-top: 20px; border-top: 1px solid #ccc; padding-top: 10px; }
     </style>
+    <!-- jsPDF and AutoTable for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -216,30 +219,133 @@
             const vegReportDiv = document.getElementById('veg-report');
             vegReportDiv.innerHTML = `
                 <h3>Vegetarian Report (${vegPersons} Persons)</h3>
-                <p>Total Running Cost: ₹${totalVegCost.toFixed(2)}</p>
+                <p>Total Running Cost: Rs.${totalVegCost.toFixed(2)}</p>
                 <p>Breakdown:</p>
                 <ul>
-                    ${Object.entries(vegCategories).map(([cat, amt]) => `<li>${cat}: ₹${amt.toFixed(2)}</li>`).join('')}
-                    ${Object.entries(sharedCategories).map(([cat, amt]) => `<li>${cat} (Shared, ${Math.round(vegShare * 100)}%): ₹${(amt * vegShare).toFixed(2)}</li>`).join('')}
+                    ${Object.entries(vegCategories).map(([cat, amt]) => `<li>${cat}: Rs.${amt.toFixed(2)}</li>`).join('')}
+                    ${Object.entries(sharedCategories).map(([cat, amt]) => `<li>${cat} (Shared, ${Math.round(vegShare * 100)}%): Rs.${(amt * vegShare).toFixed(2)}</li>`).join('')}
                 </ul>
-                <p>Profit (${profitPercentage}%): ₹${vegProfit.toFixed(2)}</p>
-                <p>Total Charge: ₹${vegTotalCharge.toFixed(2)}</p>
-                <p>Charge per Person: ₹${vegPersons > 0 ? (vegTotalCharge / vegPersons).toFixed(2) : 'N/A'}</p>
+                <p>Profit (${profitPercentage}%): Rs.${vegProfit.toFixed(2)}</p>
+                <p>Total Charge: Rs.${vegTotalCharge.toFixed(2)}</p>
+                <p>Charge per Person: Rs.${vegPersons > 0 ? (vegTotalCharge / vegPersons).toFixed(2) : 'N/A'}</p>
             `;
 
             const nonVegReportDiv = document.getElementById('nonveg-report');
             nonVegReportDiv.innerHTML = `
                 <h3>Non-Vegetarian Report (${nonVegPersons} Persons)</h3>
-                <p>Total Running Cost: ₹${totalNonVegCost.toFixed(2)}</p>
+                <p>Total Running Cost: Rs.${totalNonVegCost.toFixed(2)}</p>
                 <p>Breakdown:</p>
                 <ul>
-                    ${Object.entries(nonVegCategories).map(([cat, amt]) => `<li>${cat}: ₹${amt.toFixed(2)}</li>`).join('')}
-                    ${Object.entries(sharedCategories).map(([cat, amt]) => `<li>${cat} (Shared, ${Math.round(nonVegShare * 100)}%): ₹${(amt * nonVegShare).toFixed(2)}</li>`).join('')}
+                    ${Object.entries(nonVegCategories).map(([cat, amt]) => `<li>${cat}: Rs.${amt.toFixed(2)}</li>`).join('')}
+                    ${Object.entries(sharedCategories).map(([cat, amt]) => `<li>${cat} (Shared, ${Math.round(nonVegShare * 100)}%): Rs.${(amt * nonVegShare).toFixed(2)}</li>`).join('')}
                 </ul>
-                <p>Profit (${profitPercentage}%): ₹${nonVegProfit.toFixed(2)}</p>
-                <p>Total Charge: ₹${nonVegTotalCharge.toFixed(2)}</p>
-                <p>Charge per Person: ₹${nonVegPersons > 0 ? (nonVegTotalCharge / nonVegPersons).toFixed(2) : 'N/A'}</p>
+                <p>Profit (${profitPercentage}%): Rs.${nonVegProfit.toFixed(2)}</p>
+                <p>Total Charge: Rs.${nonVegTotalCharge.toFixed(2)}</p>
+                <p>Charge per Person: Rs.${nonVegPersons > 0 ? (nonVegTotalCharge / nonVegPersons).toFixed(2) : 'N/A'}</p>
             `;
+
+            // Initialize jsPDF
+            const { jsPDF } = window.jspdf;
+            const docVeg = new jsPDF();
+            const docNonVeg = new jsPDF();
+
+            // Vegetarian PDF - Enhanced Styling with Clean Writeup
+            docVeg.setFontSize(16);
+            docVeg.setFont('helvetica', 'bold');
+            docVeg.setTextColor(0, 128, 0); // Green
+            docVeg.text(`Vegetarian Report - ${vegPersons} Persons (${monthInput})`, 10, 10);
+
+            const vegTableData = filtered
+                .filter(entry => entry.type === 'Vegetarian' || entry.type === 'Shared')
+                .map(entry => [
+                    entry.date,
+                    entry.description,
+                    entry.category,
+                    entry.type,
+                    entry.type === 'Shared' ? (entry.amount * vegShare).toFixed(2) : entry.amount.toFixed(2)
+                ]);
+            docVeg.autoTable({
+                startY: 20,
+                head: [['Date', 'Description', 'Category', 'Type', 'Amount (Rs.)']],
+                body: vegTableData,
+                theme: 'grid',
+                headStyles: { fillColor: [0, 128, 0], textColor: [255, 255, 255], fontStyle: 'bold' }, // Green header with white text
+                bodyStyles: { fillColor: [240, 255, 240], textColor: [0, 64, 0] }, // Light green rows
+                alternateRowStyles: { fillColor: [200, 230, 200] }, // Alternate light green
+                styles: { fontSize: 10, cellPadding: 4, overflow: 'linebreak' }
+            });
+            let finalY = docVeg.lastAutoTable.finalY || 20;
+            docVeg.setFontSize(12);
+            docVeg.setFont('helvetica', 'bold');
+            docVeg.setTextColor(0, 0, 255); // Blue for summaries
+            docVeg.text(`Total Running Cost: Rs.${totalVegCost.toFixed(2)}`, 10, finalY + 10);
+            docVeg.setTextColor(0, 64, 0); // Dark green for breakdown
+            docVeg.setFont('helvetica', 'normal');
+            docVeg.text(`Breakdown:`, 10, finalY + 15);
+            let yOffset = finalY + 20;
+            Object.entries(vegCategories).forEach(([cat, amt]) => {
+                docVeg.text(`${cat}: Rs.${amt.toFixed(2)}`, 15, yOffset);
+                yOffset += 5;
+            });
+            Object.entries(sharedCategories).forEach(([cat, amt]) => {
+                docVeg.text(`${cat} (Shared, ${Math.round(vegShare * 100)}%): Rs.${(amt * vegShare).toFixed(2)}`, 15, yOffset);
+                yOffset += 5;
+            });
+            docVeg.setFont('helvetica', 'bold');
+            docVeg.setTextColor(0, 0, 255); // Blue
+            docVeg.text(`Profit (${profitPercentage}%): Rs.${vegProfit.toFixed(2)}`, 10, yOffset);
+            docVeg.text(`Total Charge: Rs.${vegTotalCharge.toFixed(2)}`, 10, yOffset + 5);
+            docVeg.text(`Charge per Person: Rs.${vegPersons > 0 ? (vegTotalCharge / vegPersons).toFixed(2) : 'N/A'}`, 10, yOffset + 10);
+            docVeg.save(`Canteen_Vegetarian_Report_${monthInput}.pdf`);
+
+            // Non-Vegetarian PDF - Enhanced Styling with Clean Writeup
+            docNonVeg.setFontSize(16);
+            docNonVeg.setFont('helvetica', 'bold');
+            docNonVeg.setTextColor(0, 128, 0); // Green
+            docNonVeg.text(`Non-Vegetarian Report - ${nonVegPersons} Persons (${monthInput})`, 10, 10);
+
+            const nonVegTableData = filtered
+                .filter(entry => entry.type === 'Non-Vegetarian' || entry.type === 'Shared')
+                .map(entry => [
+                    entry.date,
+                    entry.description,
+                    entry.category,
+                    entry.type,
+                    entry.type === 'Shared' ? (entry.amount * nonVegShare).toFixed(2) : entry.amount.toFixed(2)
+                ]);
+            docNonVeg.autoTable({
+                startY: 20,
+                head: [['Date', 'Description', 'Category', 'Type', 'Amount (Rs.)']],
+                body: nonVegTableData,
+                theme: 'grid',
+                headStyles: { fillColor: [0, 128, 0], textColor: [255, 255, 255], fontStyle: 'bold' }, // Green header with white text
+                bodyStyles: { fillColor: [240, 255, 240], textColor: [0, 64, 0] }, // Light green rows
+                alternateRowStyles: { fillColor: [200, 230, 200] }, // Alternate light green
+                styles: { fontSize: 10, cellPadding: 4, overflow: 'linebreak' }
+            });
+            finalY = docNonVeg.lastAutoTable.finalY || 20;
+            docNonVeg.setFontSize(12);
+            docNonVeg.setFont('helvetica', 'bold');
+            docNonVeg.setTextColor(0, 0, 255); // Blue for summaries
+            docNonVeg.text(`Total Running Cost: Rs.${totalNonVegCost.toFixed(2)}`, 10, finalY + 10);
+            docNonVeg.setTextColor(0, 64, 0); // Dark green for breakdown
+            docNonVeg.setFont('helvetica', 'normal');
+            docNonVeg.text(`Breakdown:`, 10, finalY + 15);
+            yOffset = finalY + 20;
+            Object.entries(nonVegCategories).forEach(([cat, amt]) => {
+                docNonVeg.text(`${cat}: Rs.${amt.toFixed(2)}`, 15, yOffset);
+                yOffset += 5;
+            });
+            Object.entries(sharedCategories).forEach(([cat, amt]) => {
+                docNonVeg.text(`${cat} (Shared, ${Math.round(nonVegShare * 100)}%): Rs.${(amt * nonVegShare).toFixed(2)}`, 15, yOffset);
+                yOffset += 5;
+            });
+            docNonVeg.setFont('helvetica', 'bold');
+            docNonVeg.setTextColor(0, 0, 255); // Blue
+            docNonVeg.text(`Profit (${profitPercentage}%): Rs.${nonVegProfit.toFixed(2)}`, 10, yOffset);
+            docNonVeg.text(`Total Charge: Rs.${nonVegTotalCharge.toFixed(2)}`, 10, yOffset + 5);
+            docNonVeg.text(`Charge per Person: Rs.${nonVegPersons > 0 ? (nonVegTotalCharge / nonVegPersons).toFixed(2) : 'N/A'}`, 10, yOffset + 10);
+            docNonVeg.save(`Canteen_NonVegetarian_Report_${monthInput}.pdf`);
 
             // Download Vegetarian CSV
             let vegCsv = 'Date,Description,Category,Type,Amount\n';
@@ -275,7 +381,7 @@
             nonVegA.click();
             URL.revokeObjectURL(nonVegUrl);
 
-            console.log('Reports generated and downloaded');
+            console.log('Reports generated and downloaded (CSV and PDF)');
         }
 
         document.getElementById('entry-form').addEventListener('submit', addEntry);
